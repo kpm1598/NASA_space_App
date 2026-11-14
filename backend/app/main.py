@@ -17,7 +17,12 @@ app = FastAPI(title="BLACKCAT - Multi-Satellite Fire Intelligence",
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    # Hackathon demo build: the frontend may be opened from localhost, a
+    # LAN address (phone on the same Wi-Fi) or a tunnel URL (phone on a
+    # different network), so any origin is allowed. The API holds no
+    # credentials, cookies or user accounts. For a production deployment,
+    # restrict this list to the real frontend origin.
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
