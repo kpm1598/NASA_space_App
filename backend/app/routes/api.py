@@ -34,8 +34,9 @@ def run_pipeline(conn):
             "isolated": cl["isolated"], "anomalies": anomalies}
 
 
-def _ingest_records(conn, records, provenance):
-    clear_all(conn)
+def _ingest_records(conn, records, provenance, clear=True):
+    if clear:
+        clear_all(conn)
     n = ingestion.insert_observations(conn, records)
     set_meta(conn, "provenance", provenance)
     pipe = run_pipeline(conn)
@@ -68,10 +69,24 @@ def ingest_sample():
 
 
 @router.post("/ingest/file")
-async def ingest_file(file: UploadFile = File(...)):
+async def ingest_file(file: UploadFile = File(...), append: bool = False):
+    """Ingest one uploaded FIRMS file (CSV or GeoJSON).
+
+    Default behaviour replaces the current dataset. Pass ?append=true to
+    ADD the file to the data already loaded — this is how a MODIS file and
+    a VIIRS file are uploaded one after another without the second upload
+    wiping the first. The full pipeline re-runs on the combined data.
+    """
     data = await file.read()
     records = ingestion.load_file_bytes(file.filename or "upload", data)
     conn = _conn()
+    existing = conn.execute(
+        "SELECT COUNT(*) c FROM observations").fetchone()["c"]
+    if append and existing:
+        prior = get_meta(conn, "provenance", "") or "existing data"
+        return _ingest_records(
+            conn, records,
+            f"{prior} + uploaded file: {file.filename}", clear=False)
     return _ingest_records(conn, records,
                            f"Uploaded file: {file.filename}")
 

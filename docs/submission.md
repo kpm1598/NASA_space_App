@@ -54,7 +54,7 @@ Fire managers today must work with fragmented records that cannot be compared di
 - **Backend:** Python, FastAPI, pandas, NumPy, scikit-learn (DBSCAN, Isolation Forest)
 - **Database:** SQLite
 - **Data formats:** CSV, GeoJSON
-- **Development:** Git/GitHub, VS Code, pytest automated tests (13 backend tests)
+- **Development:** Git/GitHub, VS Code, pytest automated tests (15 backend tests)
 
 ### Scientific honesty — the limits we state openly
 
@@ -93,7 +93,7 @@ Our team used AI (Super Intelligence) tools during this project, and we disclose
 - We used **AI coding assistants — GitHub Copilot in VS Code, and an AI assistant for planning, code generation and code review** — to accelerate development of the application code within our 36-hour build window.
 - The machine-learning methods inside the product itself are **classical algorithms — DBSCAN clustering and Isolation Forest anomaly detection (scikit-learn) — run on real NASA FIRMS data**. No generative AI produces any data, statistic or insight in the application; every insight sentence is generated from computed numbers.
 - **No NASA logos, branding or insignia were generated or used** in our project, deck or application.
-- All AI-assisted code was **tested and verified by our team**: an automated test suite of **13 backend tests** (harmonization mappings, candidate matching, clustering, anomaly explanations, ingestion of both CSV and GeoJSON, and API behaviour) passes, and the full pipeline was verified against real archived FIRMS data, producing the results reported above (30,951 observations, 906 mixed-sensor clusters, and the 2025-03-06 peak day).
+- All AI-assisted code was **tested and verified by our team**: an automated test suite of **15 backend tests** (harmonization mappings, candidate matching, clustering, anomaly explanations, ingestion of both CSV and GeoJSON, and API behaviour) passes, and the full pipeline was verified against real archived FIRMS data, producing the results reported above (30,951 observations, 906 mixed-sensor clusters, and the 2025-03-06 peak day).
 
 ---
 

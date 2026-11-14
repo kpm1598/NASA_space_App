@@ -58,10 +58,26 @@ def harmonize_confidence(sensor: str, raw):
 
 
 def detect_sensor(row: dict) -> str:
-    """MODIS rows carry 'brightness'/'bright_t31'; VIIRS rows carry
-    'bright_ti4'/'bright_ti5' and an 'instrument' field."""
+    """Identify the sensor from whichever FIRMS fields are present.
+
+    FIRMS products do not label rows uniformly: the near-real-time CSVs use
+    instrument='VIIRS' with bright_ti4/bright_ti5 columns, while the FIRMS
+    Archive Download VIIRS files use instrument='SNPP', satellite='SNPP'
+    and MODIS-style brightness/bright_t31 columns. Relying on any single
+    field misclassifies one of these real products, so check them all.
+    """
     inst = str(row.get("instrument", "")).strip().upper()
-    if inst == "VIIRS" or "bright_ti4" in row or "bright_ti5" in row:
+    if inst == "VIIRS":
+        return "VIIRS"
+    if inst == "MODIS":
+        return "MODIS"
+    sat = str(row.get("satellite", "")).strip().upper()
+    if sat in ("SNPP", "SUOMI NPP", "SUOMI-NPP", "N", "NOAA-20", "NOAA20",
+               "N20", "NOAA-21", "NOAA21", "N21"):
+        return "VIIRS"
+    if sat in ("TERRA", "AQUA"):
+        return "MODIS"
+    if "bright_ti4" in row or "bright_ti5" in row:
         return "VIIRS"
     return "MODIS"
 

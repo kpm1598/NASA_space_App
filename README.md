@@ -107,18 +107,24 @@ pip install -r requirements.txt
 python -m pytest tests -q
 ```
 
-(13 tests: harmonizer mappings, HHMM time parsing, matcher window, DBSCAN
-fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows.
+(15 tests: harmonizer mappings, HHMM time parsing, matcher window, DBSCAN
+fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows, a
+two-file upload regression test, and a sensor-detection regression test
+based on the real FIRMS Archive Download file shape.
 `requirements.txt` includes the test dependencies — pytest and httpx — so a
-fresh install can run this suite directly. Verified 2026-11-14: **13 passed**.)
+fresh install can run this suite directly. Verified 2026-11-14: **15 passed**.)
 
 ## Using your own FIRMS download (e.g. the FIRMS Archive Download .json)
 
 1. Copy your downloaded files (`.csv` or `.json`/GeoJSON both work) into
    `backend\data\samples\`.
 2. Restart the backend, then click **Load bundled FIRMS dataset**, or call
-   `POST /api/ingest/sample`. A single file can also be uploaded directly via
-   `POST /api/ingest/file`.
+   `POST /api/ingest/sample`. Files can also be uploaded directly via
+   `POST /api/ingest/file` — note that a plain upload *replaces* the current
+   dataset, so when uploading a MODIS file and a VIIRS file one after
+   another, add `?append=true` to the second (and any later) upload to
+   combine them. The samples-folder route above loads all files together
+   and needs no such care.
 3. Update `backend\data\samples\DATA_PROVENANCE.txt` so the UI labels your
    data honestly (source, area, dates).
 

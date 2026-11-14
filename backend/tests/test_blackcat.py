@@ -64,6 +64,22 @@ def test_ingest_geojson_fixture():
     assert modis["observed_at"] == "2025-03-10T05:30:00Z"
 
 
+def test_detect_sensor_archive_download_shape():
+    # Regression test from a real FIRMS Archive Download file (request
+    # 846644): its VIIRS rows carry instrument='SNPP', satellite='SNPP' and
+    # MODIS-style brightness/bright_t31 columns — no bright_ti4 anywhere.
+    # These rows were initially misclassified as MODIS.
+    from app.services.harmonizer import detect_sensor
+    assert detect_sensor({"instrument": "SNPP", "satellite": "SNPP",
+                          "brightness": "305.0", "bright_t31": "290.0"}) \
+        == "VIIRS"
+    assert detect_sensor({"instrument": "MODIS", "satellite": "Terra"}) \
+        == "MODIS"
+    assert detect_sensor({"instrument": "VIIRS", "satellite": "N"}) \
+        == "VIIRS"
+    assert detect_sensor({"satellite": "Aqua"}) == "MODIS"
+
+
 # ---------- matcher ----------
 def test_haversine_known_distance():
     # 1 degree of latitude is ~111.19 km
@@ -155,6 +171,30 @@ def test_ingest_sample_flow_with_fixtures(tmp_path, monkeypatch):
     assert cal == [{"date": "2025-03-10", "total": 5, "modis": 1, "viirs": 4}]
     ins = client.get("/api/insights").json()["insights"]
     assert any("5 harmonized" in i for i in ins)
+
+
+def test_ingest_two_files_append_flow():
+    # Regression test: a MODIS file and a VIIRS file uploaded one after
+    # another (the real FIRMS Archive Download flow) must COMBINE when the
+    # second upload uses ?append=true — not silently replace the first.
+    r1 = client.post("/api/ingest/file",
+                     files={"file": ("modis.csv", MODIS_CSV.encode(),
+                                     "text/csv")})
+    assert r1.status_code == 200 and r1.json()["ingested"] == 1
+    r2 = client.post("/api/ingest/file?append=true",
+                     files={"file": ("viirs.csv", VIIRS_CSV.encode(),
+                                     "text/csv")})
+    assert r2.status_code == 200 and r2.json()["ingested"] == 4
+    s = client.get("/api/stats").json()
+    assert s["total_observations"] == 5
+    assert s["modis"] == 1 and s["viirs"] == 4
+    assert s["candidate_links"] == 3 and s["mixed_sensor_clusters"] == 1
+    # Default (no append) still replaces, as documented.
+    r3 = client.post("/api/ingest/file",
+                     files={"file": ("modis.csv", MODIS_CSV.encode(),
+                                     "text/csv")})
+    assert r3.status_code == 200
+    assert client.get("/api/stats").json()["total_observations"] == 1
 
 
 def test_ingest_geojson_upload():
