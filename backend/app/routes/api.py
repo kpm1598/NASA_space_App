@@ -122,12 +122,14 @@ def stats():
     }
 
 
-@router.get("/observations")
-def observations(west: float = None, south: float = None, east: float = None,
-                 north: float = None, date_from: str = None,
-                 date_to: str = None, sensor: str = None,
-                 limit: int = OBS_CAP):
-    conn = _conn()
+def _filtered_query(west=None, south=None, east=None, north=None,
+                    date_from=None, date_to=None, sensor=None):
+    """Shared WHERE clause for observation listing and CSV export.
+
+    The bounding box (west/south/east/north) is the area-of-interest
+    filter the challenge asks for: users select a region and date range,
+    then view or download the matching hotspots.
+    """
     q = "SELECT * FROM observations WHERE 1=1"
     args = []
     if west is not None and east is not None:
@@ -145,6 +147,17 @@ def observations(west: float = None, south: float = None, east: float = None,
     if sensor:
         q += " AND sensor = ?"
         args.append(sensor.upper())
+    return q, args
+
+
+@router.get("/observations")
+def observations(west: float = None, south: float = None, east: float = None,
+                 north: float = None, date_from: str = None,
+                 date_to: str = None, sensor: str = None,
+                 limit: int = OBS_CAP):
+    conn = _conn()
+    q, args = _filtered_query(west, south, east, north,
+                              date_from, date_to, sensor)
     limit = max(1, min(limit, OBS_CAP))
     total_matching = conn.execute(
         q.replace("SELECT *", "SELECT COUNT(*) c"), args).fetchone()["c"]
@@ -160,6 +173,52 @@ def observations(west: float = None, south: float = None, east: float = None,
     return {"count": len(out), "total_matching": total_matching,
             "capped": total_matching > len(out), "cap": OBS_CAP,
             "observations": out}
+
+
+EXPORT_CAP = 100_000
+_CONF_LABELS = {0: "low", 1: "nominal", 2: "high"}
+
+
+@router.get("/observations.csv")
+def observations_csv(west: float = None, south: float = None,
+                     east: float = None, north: float = None,
+                     date_from: str = None, date_to: str = None,
+                     sensor: str = None):
+    """Download the hotspot rows matching the current search filters.
+
+    The challenge statement asks for a downloadable CSV of the hotspots
+    detected during a search (region, date range, sensor) — distinct from
+    the /report.csv regional summary.
+    """
+    conn = _conn()
+    q, args = _filtered_query(west, south, east, north,
+                              date_from, date_to, sensor)
+    rows = conn.execute(q + " ORDER BY observed_at LIMIT ?",
+                        args + [EXPORT_CAP])
+    linked = {r["obs_id_a"] for r in conn.execute("SELECT obs_id_a FROM links")}
+    linked |= {r["obs_id_b"] for r in conn.execute("SELECT obs_id_b FROM links")}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "sensor", "satellite", "latitude", "longitude",
+                "observed_at_utc", "obs_date", "brightness", "frp_mw",
+                "confidence_raw", "confidence_harmonized", "daynight",
+                "cluster_id", "has_candidate_link",
+                "note"])
+    for r in rows:
+        d = dict(r)
+        w.writerow([d.get("id"), d.get("sensor"), d.get("satellite"),
+                    d.get("latitude"), d.get("longitude"),
+                    d.get("observed_at"), d.get("obs_date"),
+                    d.get("brightness"), d.get("frp"),
+                    d.get("confidence_raw"),
+                    _CONF_LABELS.get(d.get("confidence_harmonized"),
+                                     "unknown"),
+                    d.get("daynight"), d.get("cluster_id") or "",
+                    "yes" if d.get("id") in linked else "no",
+                    "satellite-detected thermal anomaly, not a confirmed "
+                    "ground-truth wildfire"])
+    return PlainTextResponse(buf.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": "attachment; filename=blackcat_hotspots.csv"})
 
 
 @router.get("/observations/{obs_id}")

@@ -27,4 +27,9 @@ export const api = {
     return r.json()
   },
   reportUrl: `${BASE}/api/report.csv`,
+  observationsCsvUrl: (params) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== '' && v != null))
+    return `${BASE}/api/observations.csv?${qs}`
+  },
 }

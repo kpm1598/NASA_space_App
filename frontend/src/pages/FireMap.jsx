@@ -19,10 +19,32 @@ export default function FireMap() {
   const [clusterView, setClusterView] = useState(false)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [west, setWest] = useState('')
+  const [south, setSouth] = useState('')
+  const [east, setEast] = useState('')
+  const [north, setNorth] = useState('')
+  const [areaError, setAreaError] = useState('')
+
+  const areaParams = () => {
+    // Area of interest: all four bounds or none. Returns null when the
+    // input is incomplete/invalid (caller shows the message).
+    const vals = [west, south, east, north]
+    if (vals.every((v) => v === '')) return {}
+    if (vals.some((v) => v === '' || Number.isNaN(Number(v)))) return null
+    const [w, s, e, n] = vals.map(Number)
+    if (!(w < e && s < n)) return null
+    return { west: w, south: s, east: e, north: n }
+  }
 
   const load = () => {
     setError('')
-    api.observations({ date_from: from, date_to: to, limit: 5000 })
+    const area = areaParams()
+    if (area === null) {
+      setAreaError('Enter all four area bounds as numbers, with west < east and south < north — or clear all four for the full dataset area.')
+      return
+    }
+    setAreaError('')
+    api.observations({ date_from: from, date_to: to, limit: 5000, ...area })
       .then(setData)
       .catch(() => setError('Could not load observations — backend unreachable?'))
   }
@@ -44,6 +66,20 @@ export default function FireMap() {
         <label className="flex items-center gap-2 text-slate-400">To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
         <button onClick={load} className="rounded-lg bg-slate-800 px-3 py-1.5 hover:bg-slate-700">Apply</button>
       </div>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="text-slate-400">Area of interest (lon/lat bounds):</span>
+        <label className="flex items-center gap-1 text-slate-400">West <input type="number" step="0.1" value={west} onChange={(e) => setWest(e.target.value)} placeholder="80.5" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
+        <label className="flex items-center gap-1 text-slate-400">South <input type="number" step="0.1" value={south} onChange={(e) => setSouth(e.target.value)} placeholder="20.0" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
+        <label className="flex items-center gap-1 text-slate-400">East <input type="number" step="0.1" value={east} onChange={(e) => setEast(e.target.value)} placeholder="83.5" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
+        <label className="flex items-center gap-1 text-slate-400">North <input type="number" step="0.1" value={north} onChange={(e) => setNorth(e.target.value)} placeholder="23.0" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
+        <button onClick={() => { setWest(''); setSouth(''); setEast(''); setNorth(''); setAreaError('') }} className="rounded-lg bg-slate-800 px-3 py-1.5 hover:bg-slate-700">Clear area</button>
+        <a href={api.observationsCsvUrl({ date_from: from, date_to: to, ...(areaParams() || {}), ...(showModis !== showViirs ? { sensor: showModis ? 'MODIS' : 'VIIRS' } : {}) })}
+          className="rounded-lg bg-orange-600 px-3 py-1.5 font-medium text-white hover:bg-orange-500">
+          Download matching hotspots (CSV)
+        </a>
+        <span className="text-xs text-slate-500">Leave blank for the whole loaded dataset. Demo AOI: lon 80.5–83.5, lat 20–23. The CSV download follows the same date, sensor and area filters.</span>
+      </div>
+      {areaError && <p className="text-sm text-red-400">{areaError}</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
       {data && (
         <p className="text-sm text-slate-400">

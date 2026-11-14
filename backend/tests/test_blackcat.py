@@ -206,3 +206,42 @@ def test_ingest_geojson_upload():
     assert len(obs) == 2
     detail = client.get(f"/api/observations/{obs[0]['id']}").json()
     assert "original" in detail and "unified" in detail
+
+
+def _ingest_both_fixtures(tmp_path, monkeypatch):
+    (tmp_path / "modis.csv").write_text(MODIS_CSV)
+    (tmp_path / "viirs.csv").write_text(VIIRS_CSV)
+    (tmp_path / "DATA_PROVENANCE.txt").write_text("test fixture data")
+    monkeypatch.setattr(api_module, "SAMPLES_DIR", tmp_path)
+    assert client.post("/api/ingest/sample").status_code == 200
+
+
+def test_observations_bbox_filter(tmp_path, monkeypatch):
+    # AOI filter: the fixture cluster sits near (21.0, 81.0); the far
+    # VIIRS point at (24.5, 85.5) must fall outside a tight box.
+    _ingest_both_fixtures(tmp_path, monkeypatch)
+    box = client.get("/api/observations",
+                     params={"west": 80.5, "south": 20.5,
+                             "east": 81.5, "north": 21.5}).json()
+    assert box["total_matching"] == 4
+    allr = client.get("/api/observations").json()
+    assert allr["total_matching"] == 5
+
+
+def test_observations_csv_export_filters(tmp_path, monkeypatch):
+    # The downloadable CSV of hotspots from a search must carry the
+    # header + exactly the rows matching the filters.
+    _ingest_both_fixtures(tmp_path, monkeypatch)
+    r = client.get("/api/observations.csv")
+    assert r.status_code == 200
+    assert "text/csv" in r.headers["content-type"]
+    lines = [ln for ln in r.text.strip().splitlines() if ln]
+    assert lines[0].startswith("id,sensor,satellite,latitude,longitude")
+    assert len(lines) == 1 + 5
+    assert any(",MODIS," in ln for ln in lines)
+    r2 = client.get("/api/observations.csv",
+                    params={"sensor": "VIIRS", "west": 80.5, "south": 20.5,
+                            "east": 81.5, "north": 21.5})
+    lines2 = [ln for ln in r2.text.strip().splitlines() if ln]
+    assert len(lines2) == 1 + 3
+    assert all(",VIIRS," in ln for ln in lines2[1:])

@@ -15,7 +15,7 @@ Challenge: **Harmonization of MODIS and VIIRS Hot Spots**
 
 ## (b) High-Level Project Summary
 
-BLACKCAT is a web application that harmonizes active-fire hotspot records from two NASA satellite sensors — MODIS and VIIRS — into one unified, analyzable record of burning activity. The two sensors differ in spatial resolution, confidence reporting, and overpass times, so their data cannot be compared directly. Our platform ingests NASA FIRMS observations from both sensors, preserves every original record, and maps them into a common schema. It then links candidate cross-sensor detections of the same burning, groups related observations into candidate clusters with DBSCAN, flags statistically unusual activity with Isolation Forest, and presents the result as an interactive burning activity calendar, fire map, and intelligence dashboard. By turning fragmented sensor records into a consistent historical picture, BLACKCAT helps early warning and emergency responders, scientists, and land managers examine fire patterns, unusual conditions, and critical periods within a selected area of interest.
+BLACKCAT is a web application that harmonizes active-fire hotspot records from two NASA satellite sensors — MODIS and VIIRS — into one unified, analyzable record of burning activity. The two sensors differ in spatial resolution, confidence reporting, and overpass times, so their data cannot be compared directly. Our platform ingests NASA FIRMS observations from both sensors, preserves every original record, and maps them into a common schema. It then links candidate cross-sensor detections of the same burning, groups related observations into candidate clusters with DBSCAN, flags statistically unusual activity with Isolation Forest, and presents the result as an interactive burning activity calendar, fire map, and intelligence dashboard. By turning fragmented sensor records into a consistent historical picture, BLACKCAT helps early warning and emergency responders, scientists, land managers, and firefighters examine fire patterns, unusual conditions, and critical periods within a selected area of interest.
 
 ---
 
@@ -33,6 +33,7 @@ BLACKCAT takes active-fire hotspot observations recorded by two different NASA s
 4. **DBSCAN clustering** — Observations are grouped per UTC day using DBSCAN with a haversine distance metric (eps 2.5 km, min_samples 3), producing candidate activity clusters. Clusters that contain observations from both sensors are highlighted — they are the strongest evidence that the harmonization is working.
 5. **Isolation Forest anomaly detection** — Observations are aggregated to 0.25° grid cells per day (observation count, mean and maximum FRP, VIIRS share, night share). An Isolation Forest model flags statistically unusual grid-days, and every flag carries a plain-language, percentile-based explanation (for example, "observation count is in the 99th percentile for this dataset").
 6. **Burning activity calendar and insights** — Daily, per-sensor activity is shown as a calendar heatmap and charts, and a set of insights is generated from the computed results only — totals, mixed-sensor cluster counts, peak activity day, and unusual periods.
+7. **Area selection and export** — On the fire map, users filter by date range, sensor, and a latitude/longitude area of interest, and can download the hotspot rows matching their search as a CSV file (in addition to a regional summary report).
 
 ### Demonstrated results (bundled demo dataset)
 
@@ -46,7 +47,7 @@ Our submitted demo runs on **real archived NASA FIRMS data** — not simulated d
 
 ### Benefits and what we hope to achieve
 
-Fire managers today must work with fragmented records that cannot be compared directly across sensors. BLACKCAT gives early warning and emergency responders, scientists, and land managers one consistent historical record for a selected area of interest, so they can examine historical fire patterns, unusual conditions, and critical periods — for example, spotting the days and places where burning activity was statistically exceptional during a fire season. We hope to show that scientifically careful multi-sensor harmonization, combined with transparent machine learning, can turn two incompatible satellite archives into a single trustworthy picture of burning activity, and that this approach can be extended to more regions, more seasons, and live data.
+Fire managers today must work with fragmented records that cannot be compared directly across sensors. BLACKCAT gives early warning and emergency responders, scientists, land managers, and firefighters one consistent historical record for a selected area of interest, so they can examine historical fire patterns, unusual conditions, and critical periods — for example, spotting the days and places where burning activity was statistically exceptional during a fire season. This matters now because MODIS, aboard Terra and Aqua, is approaching the end of its operational life after more than two decades of observations, while VIIRS provides the continuing record at finer spatial resolution — a harmonized series is the only way the long MODIS archive and the VIIRS era can be read as one consistent history. We hope to show that scientifically careful multi-sensor harmonization, combined with transparent machine learning, can turn two incompatible satellite archives into a single trustworthy picture of burning activity, and that this approach can be extended to more regions, more seasons, and live data.
 
 ### Tools, languages and software used
 
@@ -54,7 +55,7 @@ Fire managers today must work with fragmented records that cannot be compared di
 - **Backend:** Python, FastAPI, pandas, NumPy, scikit-learn (DBSCAN, Isolation Forest)
 - **Database:** SQLite
 - **Data formats:** CSV, GeoJSON
-- **Development:** Git/GitHub, VS Code, pytest automated tests (15 backend tests)
+- **Development:** Git/GitHub, VS Code, pytest automated tests (17 backend tests)
 
 ### Scientific honesty — the limits we state openly
 
@@ -93,7 +94,7 @@ Our team used AI (Super Intelligence) tools during this project, and we disclose
 - We used **AI coding assistants — GitHub Copilot in VS Code, and an AI assistant for planning, code generation and code review** — to accelerate development of the application code within our 36-hour build window.
 - The machine-learning methods inside the product itself are **classical algorithms — DBSCAN clustering and Isolation Forest anomaly detection (scikit-learn) — run on real NASA FIRMS data**. No generative AI produces any data, statistic or insight in the application; every insight sentence is generated from computed numbers.
 - **No NASA logos, branding or insignia were generated or used** in our project, deck or application.
-- All AI-assisted code was **tested and verified by our team**: an automated test suite of **15 backend tests** (harmonization mappings, candidate matching, clustering, anomaly explanations, ingestion of both CSV and GeoJSON, and API behaviour) passes, and the full pipeline was verified against real archived FIRMS data, producing the results reported above (30,951 observations, 906 mixed-sensor clusters, and the 2025-03-06 peak day).
+- All AI-assisted code was **tested and verified by our team**: an automated test suite of **17 backend tests** (harmonization mappings, candidate matching, clustering, anomaly explanations, ingestion of both CSV and GeoJSON, area-of-interest filtering, hotspot CSV export, and API behaviour) passes, and the full pipeline was verified against real archived FIRMS data, producing the results reported above (30,951 observations, 906 mixed-sensor clusters, and the 2025-03-06 peak day).
 
 ---
 

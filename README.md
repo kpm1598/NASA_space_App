@@ -98,6 +98,11 @@ Open http://127.0.0.1:5173 — on the Dashboard, click
 **"Load bundled FIRMS dataset"** to ingest the archived data and run the
 full ML pipeline (takes a few seconds for ~31k observations).
 
+On the **Fire Map** you can filter by date range and sensor, narrow to an
+area of interest by entering longitude/latitude bounds, and download the
+hotspot rows matching your search as a CSV ("Download matching hotspots").
+The Dashboard also offers a regional summary report as CSV.
+
 ### Tests
 
 ```powershell
@@ -107,7 +112,7 @@ pip install -r requirements.txt
 python -m pytest tests -q
 ```
 
-(15 tests: harmonizer mappings, HHMM time parsing, matcher window, DBSCAN
+(17 tests: harmonizer mappings, HHMM time parsing, matcher window, DBSCAN
 fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows, a
 two-file upload regression test, and a sensor-detection regression test
 based on the real FIRMS Archive Download file shape.
