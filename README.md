@@ -103,12 +103,14 @@ full ML pipeline (takes a few seconds for ~31k observations).
 ```powershell
 cd NASA_space_App\backend
 .venv\Scripts\activate
-pip install pytest httpx
+pip install -r requirements.txt
 python -m pytest tests -q
 ```
 
 (13 tests: harmonizer mappings, HHMM time parsing, matcher window, DBSCAN
-fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows.)
+fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows.
+`requirements.txt` includes the test dependencies — pytest and httpx — so a
+fresh install can run this suite directly. Verified 2026-11-14: **13 passed**.)
 
 ## Using your own FIRMS download (e.g. the FIRMS Archive Download .json)
 
