@@ -1,4 +1,4 @@
-# BLACKCAT — NASA Space Apps Project Submission Page Content
+# Team BlackCat — NASA Space Apps Project Submission Page Content
 
 *Ready-to-paste content for the official Project Submission page. All fields in English.*
 
@@ -6,7 +6,7 @@
 
 ## (a) Project Name
 
-**BLACKCAT**
+**MODIS–VIIRS Hotspot Harmonization Platform**
 
 Team: BlackCat — Dayananda Sagar University, Bengaluru
 Challenge: **Harmonization of MODIS and VIIRS Hot Spots**
@@ -15,7 +15,7 @@ Challenge: **Harmonization of MODIS and VIIRS Hot Spots**
 
 ## (b) High-Level Project Summary
 
-BLACKCAT is a web application that harmonizes active-fire hotspot records from two NASA satellite sensors — MODIS and VIIRS — into one unified, analyzable record of burning activity. The two sensors differ in spatial resolution, confidence reporting, and overpass times, so their data cannot be compared directly. Our platform ingests NASA FIRMS observations from both sensors, preserves every original record, and maps them into a common schema. It then links candidate cross-sensor detections of the same burning, groups related observations into candidate clusters with DBSCAN, flags statistically unusual activity with Isolation Forest, and presents the result as an interactive burning activity calendar, fire map, and intelligence dashboard. By turning fragmented sensor records into a consistent historical picture, BLACKCAT helps early warning and emergency responders, scientists, land managers, and firefighters examine fire patterns, unusual conditions, and critical periods within a selected area of interest.
+Our project, built by Team BlackCat, is a web application that harmonizes active-fire hotspot records from two NASA satellite sensors — MODIS and VIIRS — into one unified, analyzable record of burning activity. The two sensors differ in spatial resolution, confidence reporting, and overpass times, so their data cannot be compared directly. Our platform ingests NASA FIRMS observations from both sensors, preserves every original record, and maps them into a common schema. It then links candidate cross-sensor detections of the same burning, groups related observations into candidate clusters with DBSCAN, flags statistically unusual activity with Isolation Forest, and presents the result as an interactive burning activity calendar, fire map, and intelligence dashboard. By turning fragmented sensor records into a consistent historical picture, the platform helps early warning and emergency responders, scientists, land managers, and firefighters examine fire patterns, unusual conditions, and critical periods within a selected area of interest.
 
 ---
 
@@ -23,7 +23,7 @@ BLACKCAT is a web application that harmonizes active-fire hotspot records from t
 
 ### What it does
 
-BLACKCAT takes active-fire hotspot observations recorded by two different NASA satellite instruments — MODIS (aboard Terra and Aqua) and VIIRS (aboard Suomi NPP) — and harmonizes them into a single, consistent burning activity picture. Instead of being just another map of raw hotspots, BLACKCAT's core is an intelligence pipeline that finds relationships between the two sensors' records, groups related observations, and identifies statistically unusual burning activity, all presented through a burning activity calendar, an interactive fire map, and an intelligence dashboard.
+The platform takes active-fire hotspot observations recorded by two different NASA satellite instruments — MODIS (aboard Terra and Aqua) and VIIRS (aboard Suomi NPP) — and harmonizes them into a single, consistent burning activity picture. Instead of being just another map of raw hotspots, its core is an intelligence pipeline that finds relationships between the two sensors' records, groups related observations, and identifies statistically unusual burning activity, all presented through a burning activity calendar, an interactive fire map, and an intelligence dashboard.
 
 ### How it works
 
@@ -47,7 +47,7 @@ Our submitted demo runs on **real archived NASA FIRMS data** — not simulated d
 
 ### Benefits and what we hope to achieve
 
-Fire managers today must work with fragmented records that cannot be compared directly across sensors. BLACKCAT gives early warning and emergency responders, scientists, land managers, and firefighters one consistent historical record for a selected area of interest, so they can examine historical fire patterns, unusual conditions, and critical periods — for example, spotting the days and places where burning activity was statistically exceptional during a fire season. This matters now because MODIS, aboard Terra and Aqua, is approaching the end of its operational life after more than two decades of observations, while VIIRS provides the continuing record at finer spatial resolution — a harmonized series is the only way the long MODIS archive and the VIIRS era can be read as one consistent history. We hope to show that scientifically careful multi-sensor harmonization, combined with transparent machine learning, can turn two incompatible satellite archives into a single trustworthy picture of burning activity, and that this approach can be extended to more regions, more seasons, and live data.
+Fire managers today must work with fragmented records that cannot be compared directly across sensors. Our platform gives early warning and emergency responders, scientists, land managers, and firefighters one consistent historical record for a selected area of interest, so they can examine historical fire patterns, unusual conditions, and critical periods — for example, spotting the days and places where burning activity was statistically exceptional during a fire season. This matters now because MODIS, aboard Terra and Aqua, is approaching the end of its operational life after more than two decades of observations, while VIIRS provides the continuing record at finer spatial resolution — a harmonized series is the only way the long MODIS archive and the VIIRS era can be read as one consistent history. We hope to show that scientifically careful multi-sensor harmonization, combined with transparent machine learning, can turn two incompatible satellite archives into a single trustworthy picture of burning activity, and that this approach can be extended to more regions, more seasons, and live data.
 
 ### Tools, languages and software used
 
