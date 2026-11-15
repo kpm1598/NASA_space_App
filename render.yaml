@@ -3,9 +3,11 @@
 #                  on first boot because BLACKCAT_AUTOFILL_SAMPLES=1)
 #   blackcat-web : React frontend (static site), built with
 #                  VITE_API_BASE pointing at the backend service.
-# If Render says the service name "blackcat-api" is taken, the backend
-# URL changes — update VITE_API_BASE in the blackcat-web service
-# settings to the real backend URL and redeploy the static site.
+# NOTE: the plain name "blackcat-api" was already taken on Render by an
+# unrelated project, so this backend's real URL is
+# https://blackcat-api-19au.onrender.com — VITE_API_BASE below points
+# there. If the backend service is ever recreated and gets a new URL,
+# update VITE_API_BASE to match and redeploy the static site.
 services:
   - type: web
     name: blackcat-api
@@ -25,4 +27,4 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE
-        value: https://blackcat-api.onrender.com
+        value: https://blackcat-api-19au.onrender.com
