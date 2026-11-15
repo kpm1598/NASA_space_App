@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import {
-  CircleMarker, MapContainer, Marker, Popup, Rectangle, ScaleControl,
-  TileLayer, useMap,
+  CircleMarker, MapContainer, Marker, Polygon, Popup, Rectangle,
+  ScaleControl, TileLayer, useMap,
 } from 'react-leaflet'
 import { api } from '../services/api'
 
@@ -28,6 +28,79 @@ function frpTier(frp) {
 function frpRadius(frp) {
   if (!frp) return 3.5
   return Math.min(11, 3 + Math.sqrt(frp))
+}
+
+// --- Hex-grid aggregation (the honeycomb look of the reference image) ---
+// Points are projected to local kilometres, binned into pointy-top
+// hexagons (~8 km across), and each cell is coloured by how many
+// detections fell inside it: pale yellow -> orange -> deep red.
+const KM_PER_DEG_LAT = 110.9
+const KM_PER_DEG_LON = 103.6 // at ~21.5 deg N
+const HEX_SIZE_KM = 4
+
+function hexKeyFor(lat, lon) {
+  const x = lon * KM_PER_DEG_LON
+  const y = lat * KM_PER_DEG_LAT
+  const q = ((Math.sqrt(3) / 3) * x - y / 3) / HEX_SIZE_KM
+  const r = ((2 / 3) * y) / HEX_SIZE_KM
+  // cube round
+  let cx = q
+  let cz = r
+  let cy = -cx - cz
+  let rx = Math.round(cx)
+  let ry = Math.round(cy)
+  let rz = Math.round(cz)
+  const dx = Math.abs(rx - cx)
+  const dy = Math.abs(ry - cy)
+  const dz = Math.abs(rz - cz)
+  if (dx > dy && dx > dz) rx = -ry - rz
+  else if (dy > dz) ry = -rx - rz
+  else rz = -rx - ry
+  return { key: `${rx},${rz}`, q: rx, r: rz }
+}
+
+function hexCorners(q, r) {
+  const cx = HEX_SIZE_KM * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r)
+  const cy = HEX_SIZE_KM * 1.5 * r
+  const pts = []
+  for (let i = 0; i < 6; i++) {
+    const ang = ((60 * i - 30) * Math.PI) / 180
+    const px = cx + HEX_SIZE_KM * Math.cos(ang)
+    const py = cy + HEX_SIZE_KM * Math.sin(ang)
+    pts.push([py / KM_PER_DEG_LAT, px / KM_PER_DEG_LON])
+  }
+  return pts
+}
+
+function hexColor(t) {
+  if (t < 0.12) return '#fef9c3'
+  if (t < 0.3) return '#fde047'
+  if (t < 0.5) return '#fbbf24'
+  if (t < 0.7) return '#f97316'
+  if (t < 0.88) return '#dc2626'
+  return '#991b1b'
+}
+
+// Convex hull (Andrew's monotone chain) over [lat, lon] pairs — used to
+// outline the footprint of the largest candidate cluster.
+function convexHull(points) {
+  const pts = [...new Map(points.map((p) => [`${p[0]},${p[1]}`, p])).values()]
+    .sort((a, b) => a[1] - b[1] || a[0] - b[0])
+  if (pts.length < 3) return null
+  const cross = (o, a, b) => (a[1] - o[1]) * (b[0] - o[0]) - (a[0] - o[0]) * (b[1] - o[1])
+  const lower = []
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop()
+    lower.push(p)
+  }
+  const upper = []
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i]
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop()
+    upper.push(p)
+  }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1))
+  return hull.length >= 3 ? hull : null
 }
 
 function flameIcon(color, size) {
@@ -106,7 +179,8 @@ export default function FireMap() {
   const [error, setError] = useState('')
   const [showModis, setShowModis] = useState(true)
   const [showViirs, setShowViirs] = useState(true)
-  const [viewMode, setViewMode] = useState('intensity') // intensity | sensor | cluster
+  const [viewMode, setViewMode] = useState('hex') // hex | intensity | sensor | cluster
+  const [showFootprint, setShowFootprint] = useState(true)
   const [basemap, setBasemap] = useState('satellite')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -155,6 +229,48 @@ export default function FireMap() {
     return frpTier(o.frp).color
   }
 
+  // Honeycomb cells for hex view: one polygon per occupied hexagon.
+  const hexes = useMemo(() => {
+    if (viewMode !== 'hex') return []
+    const cells = new Map()
+    for (const o of points) {
+      const { key, q, r } = hexKeyFor(o.latitude, o.longitude)
+      let c = cells.get(key)
+      if (!c) {
+        c = { key, q, r, count: 0, modis: 0, viirs: 0, frpSum: 0, frpMax: 0 }
+        cells.set(key, c)
+      }
+      c.count += 1
+      if (o.sensor === 'MODIS') c.modis += 1
+      else c.viirs += 1
+      if (o.frp != null) {
+        c.frpSum += o.frp
+        if (o.frp > c.frpMax) c.frpMax = o.frp
+      }
+    }
+    const list = [...cells.values()]
+    const max = list.reduce((m, c) => Math.max(m, c.count), 0) || 1
+    return list.map((c) => ({ ...c, corners: hexCorners(c.q, c.r), t: c.count / max }))
+  }, [points, viewMode])
+
+  // Footprint of the largest candidate cluster (most observations),
+  // drawn like the outlined burn area in the reference image.
+  const footprint = useMemo(() => {
+    const byCluster = new Map()
+    for (const o of points) {
+      if (!o.cluster_id) continue
+      if (!byCluster.has(o.cluster_id)) byCluster.set(o.cluster_id, [])
+      byCluster.get(o.cluster_id).push([o.latitude, o.longitude])
+    }
+    let best = null
+    for (const [id, pts] of byCluster) {
+      if (!best || pts.length > best.pts.length) best = { id, pts }
+    }
+    if (!best) return null
+    const hull = convexHull(best.pts)
+    return hull ? { id: best.id, n: best.pts.length, hull } : null
+  }, [points])
+
   // The strongest detections in view get real flame markers on top of the
   // glow layer, so the eye lands on the most intense burning first.
   const flames = useMemo(
@@ -173,9 +289,11 @@ export default function FireMap() {
       <div>
         <h2 className="text-lg font-semibold">Fire Map — where the burning is</h2>
         <p className="text-sm text-slate-400">
-          Real satellite imagery with every harmonized hotspot drawn as a glowing fire point.
-          Bigger, brighter points mean stronger burning (higher fire radiative power, FRP);
-          flame markers flag the {FLAME_COUNT} strongest detections in view. Click any point for its details.
+          Real satellite imagery with the harmonized hotspots aggregated into a honeycomb
+          hex grid — pale yellow cells had few detections, deep red cells the most — plus an
+          outlined footprint of the largest candidate cluster. Switch views to see individual
+          glowing fire points instead (bigger, brighter = stronger burning, FRP), and flame
+          markers flag the {FLAME_COUNT} strongest detections in view.
         </p>
       </div>
 
@@ -184,6 +302,7 @@ export default function FireMap() {
           <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
             <h3 className="mb-2 text-sm font-semibold text-slate-200">Colour the map by</h3>
             <div className="flex flex-wrap gap-2">
+              <button onClick={() => setViewMode('hex')} className={segmentBtn(viewMode === 'hex')}>Hex grid</button>
               <button onClick={() => setViewMode('intensity')} className={segmentBtn(viewMode === 'intensity')}>Fire intensity</button>
               <button onClick={() => setViewMode('sensor')} className={segmentBtn(viewMode === 'sensor')}>Sensor</button>
               <button onClick={() => setViewMode('cluster')} className={segmentBtn(viewMode === 'cluster')}>Cluster</button>
@@ -196,6 +315,16 @@ export default function FireMap() {
             </div>
             <div className="mt-4 space-y-1.5 text-sm">
               <p className="font-medium text-slate-300">Legend</p>
+              {viewMode === 'hex' && (
+                <>
+                  <p className="text-slate-300">Each hexagon (~8 km across) groups the detections inside it:</p>
+                  <p><span style={{ color: '#fef9c3' }}>⬢</span> Few detections</p>
+                  <p><span style={{ color: '#fbbf24' }}>⬢</span> Moderate</p>
+                  <p><span style={{ color: '#f97316' }}>⬢</span> Many</p>
+                  <p><span style={{ color: '#991b1b' }}>⬢</span> Most detections in view</p>
+                  <p className="text-slate-400">Click a cell for its exact counts and FRP totals.</p>
+                </>
+              )}
               {viewMode === 'intensity' && (
                 <>
                   <p><span style={{ color: '#facc15' }}>●</span> Low — under 5 MW</p>
@@ -220,6 +349,12 @@ export default function FireMap() {
                 </>
               )}
               <p className="pt-1 text-slate-400">🔥 Flame = one of the {FLAME_COUNT} strongest detections currently in view.</p>
+              {footprint && (
+                <label className="flex items-center gap-2 pt-2 text-slate-300">
+                  <input type="checkbox" checked={showFootprint} onChange={(e) => setShowFootprint(e.target.checked)} />
+                  <span><span className="text-yellow-300">▭</span> Largest cluster footprint ({footprint.n} detections)</span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -254,6 +389,7 @@ export default function FireMap() {
           {data && (
             <p className="mb-2 text-sm text-slate-400">
               Showing {points.length.toLocaleString('en-IN')} of {data.total_matching.toLocaleString('en-IN')} matching observations
+              {viewMode === 'hex' && hexes.length > 0 && <> · grouped into <strong className="text-orange-300">{hexes.length} hex cells</strong></>}
               {maxFrp != null && <> · strongest in view: <strong className="text-orange-300">{maxFrp} MW</strong></>}
               {flames.length > 0 && <> · {flames.length} flame markers shown</>}
               {data.capped && <span className="text-amber-400"> · points are capped at {data.cap.toLocaleString('en-IN')} for browser performance — narrow the dates or area to see a period in full.</span>}
@@ -271,7 +407,33 @@ export default function FireMap() {
                   pathOptions={{ color: '#f97316', weight: 1.5, dashArray: '6 4', fillOpacity: 0.04 }}
                 />
               )}
-              {points.filter((o) => !flameIds.has(o.id)).map((o) => (
+              {showFootprint && footprint && (
+                <Polygon positions={footprint.hull}
+                  pathOptions={{ color: '#facc15', weight: 2, fillColor: '#7f1d1d', fillOpacity: 0.3 }}>
+                  <Popup>
+                    <div style={{ minWidth: 190 }}>
+                      <strong>Largest candidate cluster footprint</strong><br />
+                      {footprint.n} harmonized detections in this cluster.<br />
+                      The outline is the convex hull of its detection points — an
+                      approximation of the affected area, not a measured burn-scar
+                      perimeter (that requires burned-area products).
+                    </div>
+                  </Popup>
+                </Polygon>
+              )}
+              {viewMode === 'hex' && hexes.map((c) => (
+                <Polygon key={c.key} positions={c.corners}
+                  pathOptions={{ color: 'rgba(255,255,255,0.25)', weight: 0.5, fillColor: hexColor(c.t), fillOpacity: 0.68 }}>
+                  <Popup>
+                    <div style={{ minWidth: 180 }}>
+                      <strong>Hex cell — {c.count} detections</strong><br />
+                      MODIS: {c.modis} · VIIRS: {c.viirs}<br />
+                      Total FRP: {Math.round(c.frpSum)} MW · Peak FRP: {c.frpMax} MW
+                    </div>
+                  </Popup>
+                </Polygon>
+              ))}
+              {viewMode !== 'hex' && points.filter((o) => !flameIds.has(o.id)).map((o) => (
                 <CircleMarker key={o.id} center={[o.latitude, o.longitude]} radius={frpRadius(o.frp)}
                   pathOptions={{
                     color: pointColor(o), fillColor: pointColor(o),
@@ -280,7 +442,7 @@ export default function FireMap() {
                   <Popup><HotspotPopup o={o} color={pointColor(o)} /></Popup>
                 </CircleMarker>
               ))}
-              {points.filter((o) => o.frp != null && o.frp >= 50).map((o) => (
+              {viewMode !== 'hex' && points.filter((o) => o.frp != null && o.frp >= 50).map((o) => (
                 <CircleMarker key={`core-${o.id}`} center={[o.latitude, o.longitude]} radius={2}
                   pathOptions={{ color: '#fff7ed', fillColor: '#fff7ed', fillOpacity: 0.95, weight: 0 }} />
               ))}
@@ -293,9 +455,11 @@ export default function FireMap() {
             </MapContainer>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Each point is one satellite-detected thermal anomaly (a hotspot), not a confirmed ground-truth wildfire.
-            FRP (fire radiative power, MW) is the satellite's measurement of the fire's radiative energy — the map's
-            size and brightness scale with it, so dense bright areas are where burning was most intense, not just most frequent.
+            Each detection is one satellite-observed thermal anomaly (a hotspot), not a confirmed ground-truth wildfire.
+            In Hex grid view, cells aggregate the detections inside them (colour = how many, relative to the busiest cell in view).
+            The yellow-outlined footprint is the convex hull of the largest candidate cluster's detections — an approximation
+            of the affected area, not a measured burn-scar perimeter. FRP (fire radiative power, MW) is the satellite's
+            measurement of radiative energy, so bright, dense areas are where burning was most intense, not just most frequent.
           </p>
         </div>
       </div>
