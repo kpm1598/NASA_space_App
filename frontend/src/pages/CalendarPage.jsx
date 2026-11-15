@@ -36,15 +36,16 @@ export default function CalendarPage() {
     return cols
   }, [days])
 
-  if (days === null) return <p className="text-slate-400">Loading calendar…</p>
-  if (days.length === 0) return <p className="text-slate-400">No data loaded yet — ingest the dataset from the Dashboard first.</p>
+  if (days === null) return <p className="font-mono text-sm text-slate-400">Loading calendar…</p>
+  if (days.length === 0) return <p className="font-mono text-sm text-slate-400">No data loaded yet — ingest the dataset from the Dashboard first.</p>
   const max = Math.max(...days.map((d) => d.total))
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-        <h2 className="mb-1 text-lg font-semibold">Burning Activity Calendar</h2>
-        <p className="mb-4 text-sm text-slate-400">
+      <div className="hud-panel p-5">
+        <div className="hud-label mb-1">Module 03 // Temporal Activity</div>
+        <h2 className="mb-1 font-display text-[22px] font-semibold uppercase tracking-wide text-slate-50">Burning Activity Calendar</h2>
+        <p className="mb-4 text-[15px] text-slate-400">
           One cell per day, coloured by total hotspot observations (MODIS + VIIRS harmonized).
           Peak day: {days.reduce((a, b) => (b.total > a.total ? b : a)).date} with{' '}
           {max.toLocaleString('en-IN')} observations.
@@ -60,28 +61,28 @@ export default function CalendarPage() {
             </div>
           ))}
         </div>
-        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+        <div className="mt-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500">
           Less <span className="inline-block h-3 w-3 rounded-[3px]" style={{ backgroundColor: '#7c2d12' }} />
           <span className="inline-block h-3 w-3 rounded-[3px]" style={{ backgroundColor: '#c2410c' }} />
           <span className="inline-block h-3 w-3 rounded-[3px]" style={{ backgroundColor: '#f97316' }} /> More
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-        <h2 className="mb-4 text-lg font-semibold">Daily observations by sensor</h2>
+      <div className="hud-panel p-5">
+        <h2 className="mb-4 font-display text-[22px] font-semibold uppercase tracking-wide text-slate-50">Daily observations by sensor</h2>
         <ResponsiveContainer width="100%" height={320}>
           <ComposedChart data={days}>
-            <CartesianGrid stroke="#1e293b" />
-            <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} minTickGap={24} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155' }} />
-            <Legend />
+            <CartesianGrid stroke="#16303f" />
+            <XAxis dataKey="date" tick={{ fill: '#8fa3bd', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }} minTickGap={24} />
+            <YAxis tick={{ fill: '#8fa3bd', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }} />
+            <Tooltip contentStyle={{ backgroundColor: 'rgba(7,13,24,0.96)', border: '1px solid rgba(34,211,238,0.35)', fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
             <Bar dataKey="viirs" stackId="a" fill="#38bdf8" name="VIIRS" />
             <Bar dataKey="modis" stackId="a" fill="#ef4444" name="MODIS" />
             <Line type="monotone" dataKey="total" stroke="#f97316" dot={false} name="Total" />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 font-mono text-[11px] leading-relaxed text-slate-500">
           VIIRS (375 m) detects many more, smaller thermal anomalies than MODIS (~1 km) over the same
           area and period. BLACKCAT preserves that sensor difference instead of pretending the two
           datasets are identical.

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import {
   CircleMarker, MapContainer, Marker, Polygon, Popup, Rectangle,
-  ScaleControl, TileLayer, useMap,
+  ScaleControl, TileLayer, useMap, useMapEvents,
 } from 'react-leaflet'
 import { api } from '../services/api'
+import GlobeView from '../components/GlobeView'
 
 const PALETTE = ['#f97316', '#38bdf8', '#a78bfa', '#34d399', '#facc15', '#fb7185', '#22d3ee', '#e879f9']
 const FLAME_COUNT = 150
@@ -121,7 +122,7 @@ const BASEMAPS = {
     label: 'Satellite',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
-    labels: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
   },
   streets: {
     label: 'Streets',
@@ -131,16 +132,37 @@ const BASEMAPS = {
   },
   dark: {
     label: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '© OpenStreetMap contributors © CARTO',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles © Esri — Source: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS User Community',
     labels: null,
   },
 }
 
-function FitToData({ data, appliedArea }) {
+// Zooming the flat map all the way out (to world level) hands over to
+// the 3D globe — the Apple-Maps gesture Kasim asked for. No buttons.
+function ZoomToGlobeWatcher({ onZoomOut }) {
+  useMapEvents({
+    zoomend(e) {
+      if (e.target.getZoom() <= 3) {
+        const c = e.target.getCenter()
+        onZoomOut({ lat: c.lat, lon: c.lng })
+      }
+    },
+  })
+  return null
+}
+
+function FitToData({ data, appliedArea, returnCentreRef }) {
   const map = useMap()
   useEffect(() => {
     if (!data) return
+    if (returnCentreRef?.current) {
+      // Returning from the globe: open where the globe was facing.
+      const c = returnCentreRef.current
+      returnCentreRef.current = null
+      map.setView([c.lat, c.lon], 5)
+      return
+    }
     if (appliedArea) {
       map.fitBounds(
         [[appliedArea.south, appliedArea.west], [appliedArea.north, appliedArea.east]],
@@ -179,7 +201,21 @@ export default function FireMap() {
   const [error, setError] = useState('')
   const [showModis, setShowModis] = useState(true)
   const [showViirs, setShowViirs] = useState(true)
-  const [viewMode, setViewMode] = useState('hex') // hex | intensity | sensor | cluster
+  const [viewMode, setViewMode] = useState('globe') // globe | hex | intensity | sensor | cluster
+  const lastFlatRef = useRef('hex')
+  useEffect(() => {
+    if (viewMode !== 'globe') lastFlatRef.current = viewMode
+  }, [viewMode])
+  const [globeCentre, setGlobeCentre] = useState(null)
+  const returnCentreRef = useRef(null)
+  const handleGlobeZoomToMap = useCallback((centre) => {
+    if (centre) returnCentreRef.current = centre
+    setViewMode(lastFlatRef.current)
+  }, [])
+  const handleMapZoomToGlobe = useCallback((centre) => {
+    if (centre) setGlobeCentre(centre)
+    setViewMode('globe')
+  }, [])
   const [showFootprint, setShowFootprint] = useState(true)
   const [basemap, setBasemap] = useState('satellite')
   const [from, setFrom] = useState('')
@@ -282,13 +318,14 @@ export default function FireMap() {
   const base = BASEMAPS[basemap]
 
   const segmentBtn = (active) =>
-    `rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-orange-600 font-medium text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`
+    `rounded-md border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] transition ${active ? 'border-orange-400/70 bg-orange-600/90 font-semibold text-white shadow-[0_0_16px_rgba(249,115,22,0.45)]' : 'border-cyan-400/15 bg-cyan-950/30 text-slate-300 hover:border-cyan-400/40 hover:text-white'}`
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Fire Map — where the burning is</h2>
-        <p className="text-sm text-slate-400">
+        <div className="hud-label mb-1">Module 02 // Orbital Fire Map</div>
+        <h2 className="font-display text-3xl font-semibold uppercase tracking-wide text-slate-50">Fire Map — where the burning is</h2>
+        <p className="mt-1 max-w-4xl text-[15px] leading-snug text-slate-400">
           Real satellite imagery with the harmonized hotspots aggregated into a honeycomb
           hex grid — pale yellow cells had few detections, deep red cells the most — plus an
           outlined footprint of the largest candidate cluster. Switch views to see individual
@@ -297,24 +334,25 @@ export default function FireMap() {
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-            <h3 className="mb-2 text-sm font-semibold text-slate-200">Colour the map by</h3>
+          <div className="hud-panel p-4">
+            <h3 className="hud-label mb-2.5">Colour the map by</h3>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setViewMode('hex')} className={segmentBtn(viewMode === 'hex')}>Hex grid</button>
               <button onClick={() => setViewMode('intensity')} className={segmentBtn(viewMode === 'intensity')}>Fire intensity</button>
               <button onClick={() => setViewMode('sensor')} className={segmentBtn(viewMode === 'sensor')}>Sensor</button>
               <button onClick={() => setViewMode('cluster')} className={segmentBtn(viewMode === 'cluster')}>Cluster</button>
+              <button onClick={() => setViewMode('globe')} className={segmentBtn(viewMode === 'globe')}>Globe</button>
             </div>
-            <h3 className="mb-2 mt-4 text-sm font-semibold text-slate-200">Base map</h3>
+            <h3 className="hud-label mb-2.5 mt-5">Base map</h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(BASEMAPS).map(([key, b]) => (
                 <button key={key} onClick={() => setBasemap(key)} className={segmentBtn(basemap === key)}>{b.label}</button>
               ))}
             </div>
             <div className="mt-4 space-y-1.5 text-sm">
-              <p className="font-medium text-slate-300">Legend</p>
+              <p className="hud-label">Legend</p>
               {viewMode === 'hex' && (
                 <>
                   <p className="text-slate-300">Each hexagon (~8 km across) groups the detections inside it:</p>
@@ -348,37 +386,46 @@ export default function FireMap() {
                   <p className="text-slate-400">A cluster is a group of related detections — not one confirmed wildfire.</p>
                 </>
               )}
+              {viewMode === 'globe' && (
+                <>
+                  <p><span style={{ color: '#facc15' }}>●</span> Low — under 5 MW</p>
+                  <p><span style={{ color: '#fb923c' }}>●</span> Moderate — 5 to 20 MW</p>
+                  <p><span style={{ color: '#f97316' }}>●</span> High — 20 to 50 MW</p>
+                  <p><span style={{ color: '#ef4444' }}>●</span> Extreme — over 50 MW</p>
+                  <p className="text-slate-400">Dot size also grows with FRP. Drag the globe to rotate it — detections on the far side of the Earth are hidden until they rotate into view.</p>
+                </>
+              )}
               <p className="pt-1 text-slate-400">🔥 Flame = one of the {FLAME_COUNT} strongest detections currently in view.</p>
               {footprint && (
                 <label className="flex items-center gap-2 pt-2 text-slate-300">
-                  <input type="checkbox" checked={showFootprint} onChange={(e) => setShowFootprint(e.target.checked)} />
+                  <input type="checkbox" className="accent-orange-500" checked={showFootprint} onChange={(e) => setShowFootprint(e.target.checked)} />
                   <span><span className="text-yellow-300">▭</span> Largest cluster footprint ({footprint.n} detections)</span>
                 </label>
               )}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
-            <h3 className="mb-2 font-semibold text-slate-200">Filters</h3>
-            <label className="mb-1 flex items-center gap-2"><input type="checkbox" checked={showModis} onChange={(e) => setShowModis(e.target.checked)} /> <span className="text-red-400">●</span> MODIS</label>
-            <label className="mb-3 flex items-center gap-2"><input type="checkbox" checked={showViirs} onChange={(e) => setShowViirs(e.target.checked)} /> <span className="text-sky-400">●</span> VIIRS</label>
-            <label className="mb-2 flex items-center justify-between gap-2 text-slate-400">From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
-            <label className="mb-3 flex items-center justify-between gap-2 text-slate-400">To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
-            <p className="mb-2 font-medium text-slate-300">Area of interest (lon/lat)</p>
+          <div className="hud-panel p-4 text-sm">
+            <h3 className="hud-label mb-3">Filters</h3>
+            <label className="mb-1.5 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-slate-300"><input type="checkbox" className="accent-orange-500" checked={showModis} onChange={(e) => setShowModis(e.target.checked)} /> <span className="text-red-400">●</span> MODIS</label>
+            <label className="mb-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-slate-300"><input type="checkbox" className="accent-orange-500" checked={showViirs} onChange={(e) => setShowViirs(e.target.checked)} /> <span className="text-sky-400">●</span> VIIRS</label>
+            <label className="mb-2 flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-400">From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="hud-input" /></label>
+            <label className="mb-3 flex items-center justify-between gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-400">To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="hud-input" /></label>
+            <p className="hud-label mb-2">Area of interest (lon/lat)</p>
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center justify-between gap-1 text-slate-400">West <input type="number" step="0.1" value={west} onChange={(e) => setWest(e.target.value)} placeholder="80.5" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
-              <label className="flex items-center justify-between gap-1 text-slate-400">East <input type="number" step="0.1" value={east} onChange={(e) => setEast(e.target.value)} placeholder="83.5" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
-              <label className="flex items-center justify-between gap-1 text-slate-400">South <input type="number" step="0.1" value={south} onChange={(e) => setSouth(e.target.value)} placeholder="20.0" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
-              <label className="flex items-center justify-between gap-1 text-slate-400">North <input type="number" step="0.1" value={north} onChange={(e) => setNorth(e.target.value)} placeholder="23.0" className="w-20 rounded bg-slate-800 px-2 py-1 text-slate-100" /></label>
+              <label className="flex items-center justify-between gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">West <input type="number" step="0.1" value={west} onChange={(e) => setWest(e.target.value)} placeholder="80.5" className="hud-input w-20" /></label>
+              <label className="flex items-center justify-between gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">East <input type="number" step="0.1" value={east} onChange={(e) => setEast(e.target.value)} placeholder="83.5" className="hud-input w-20" /></label>
+              <label className="flex items-center justify-between gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">South <input type="number" step="0.1" value={south} onChange={(e) => setSouth(e.target.value)} placeholder="20.0" className="hud-input w-20" /></label>
+              <label className="flex items-center justify-between gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-400">North <input type="number" step="0.1" value={north} onChange={(e) => setNorth(e.target.value)} placeholder="23.0" className="hud-input w-20" /></label>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button onClick={() => { setWest('80.5'); setSouth('20'); setEast('83.5'); setNorth('23') }} className="rounded-lg bg-slate-800 px-3 py-1.5 hover:bg-slate-700">Demo AOI</button>
-              <button onClick={() => { setWest(''); setSouth(''); setEast(''); setNorth(''); setAreaError('') }} className="rounded-lg bg-slate-800 px-3 py-1.5 hover:bg-slate-700">Clear area</button>
+              <button onClick={() => { setWest('80.5'); setSouth('20'); setEast('83.5'); setNorth('23') }} className="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-200 hover:border-cyan-400/50">Demo AOI</button>
+              <button onClick={() => { setWest(''); setSouth(''); setEast(''); setNorth(''); setAreaError('') }} className="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-200 hover:border-cyan-400/50">Clear area</button>
             </div>
             {areaError && <p className="mt-2 text-red-400">{areaError}</p>}
-            <button onClick={load} className="mt-3 w-full rounded-lg bg-orange-600 px-3 py-2 font-medium text-white hover:bg-orange-500">Apply filters</button>
+            <button onClick={load} className="mt-3 w-full rounded-md bg-orange-600 px-3 py-2 font-display text-base font-semibold uppercase tracking-[0.18em] text-white shadow-[0_0_18px_rgba(249,115,22,0.35)] hover:bg-orange-500">Apply filters</button>
             <a href={api.observationsCsvUrl({ date_from: from, date_to: to, ...(areaParams() || {}), ...(showModis !== showViirs ? { sensor: showModis ? 'MODIS' : 'VIIRS' } : {}) })}
-              className="mt-2 block rounded-lg bg-slate-800 px-3 py-2 text-center hover:bg-slate-700">
+              className="mt-2 block rounded-md border border-cyan-400/25 bg-cyan-950/30 px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-100 hover:border-cyan-400/60">
               Download matching hotspots (CSV)
             </a>
             {error && <p className="mt-2 text-red-400">{error}</p>}
@@ -387,20 +434,31 @@ export default function FireMap() {
 
         <div>
           {data && (
-            <p className="mb-2 text-sm text-slate-400">
+            <p className="mb-2 font-mono text-[13px] text-slate-400">
               Showing {points.length.toLocaleString('en-IN')} of {data.total_matching.toLocaleString('en-IN')} matching observations
               {viewMode === 'hex' && hexes.length > 0 && <> · grouped into <strong className="text-orange-300">{hexes.length} hex cells</strong></>}
               {maxFrp != null && <> · strongest in view: <strong className="text-orange-300">{maxFrp} MW</strong></>}
-              {flames.length > 0 && <> · {flames.length} flame markers shown</>}
+              {viewMode !== 'globe' && flames.length > 0 && <> · {flames.length} flame markers shown</>}
               {data.capped && <span className="text-amber-400"> · points are capped at {data.cap.toLocaleString('en-IN')} for browser performance — narrow the dates or area to see a period in full.</span>}
             </p>
           )}
-          <div className="overflow-hidden rounded-xl border border-slate-800">
+          <div className="hud-frame overflow-hidden">
+            <span className="pointer-events-none absolute left-0 top-0 z-[650] h-5 w-5 border-l-2 border-t-2 border-orange-400" />
+            <span className="pointer-events-none absolute right-0 top-0 z-[650] h-5 w-5 border-r-2 border-t-2 border-orange-400" />
+            <span className="pointer-events-none absolute bottom-0 left-0 z-[650] h-5 w-5 border-b-2 border-l-2 border-orange-400" />
+            <span className="pointer-events-none absolute bottom-0 right-0 z-[650] h-5 w-5 border-b-2 border-r-2 border-orange-400" />
+            <span className="pointer-events-none absolute left-1/2 top-3 z-[650] -translate-x-1/2 whitespace-nowrap rounded-sm border border-cyan-300/40 bg-[#04060d]/85 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-200">
+              {viewMode === 'globe' ? 'Orthographic globe · Harmonized FIRMS hotspots' : 'Satellite basemap · Harmonized FIRMS hotspots'}
+            </span>
+            {viewMode === 'globe' ? (
+              <GlobeView points={points} onZoomToMap={handleGlobeZoomToMap} center={globeCentre} />
+            ) : (
             <MapContainer center={[21.5, 82.0]} zoom={7} preferCanvas style={{ height: '72vh', width: '100%' }}>
               <TileLayer key={basemap} url={base.url} attribution={base.attribution} />
-              {base.labels && <TileLayer url={base.labels} attribution="© CARTO" opacity={0.85} />}
+              {base.labels && <TileLayer url={base.labels} attribution="© Esri" opacity={0.85} />}
               <ScaleControl position="bottomleft" />
-              <FitToData data={data} appliedArea={appliedArea} />
+              <FitToData data={data} appliedArea={appliedArea} returnCentreRef={returnCentreRef} />
+              <ZoomToGlobeWatcher onZoomOut={handleMapZoomToGlobe} />
               {appliedArea && (
                 <Rectangle
                   bounds={[[appliedArea.south, appliedArea.west], [appliedArea.north, appliedArea.east]]}
@@ -453,8 +511,9 @@ export default function FireMap() {
                 </Marker>
               ))}
             </MapContainer>
+            )}
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 font-mono text-[11px] leading-relaxed text-slate-500">
             Each detection is one satellite-observed thermal anomaly (a hotspot), not a confirmed ground-truth wildfire.
             In Hex grid view, cells aggregate the detections inside them (colour = how many, relative to the busiest cell in view).
             The yellow-outlined footprint is the convex hull of the largest candidate cluster's detections — an approximation

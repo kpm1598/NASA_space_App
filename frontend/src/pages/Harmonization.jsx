@@ -5,14 +5,14 @@ function SensorTable({ name, s }) {
   if (!s) return null
   const c = s.confidence_distribution
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-      <h3 className="text-base font-semibold">{name}</h3>
-      <dl className="mt-3 space-y-1.5 text-sm text-slate-300">
-        <div className="flex justify-between"><dt>Observations</dt><dd>{s.count.toLocaleString('en-IN')}</dd></div>
-        <div className="flex justify-between"><dt>Median FRP</dt><dd>{s.median_frp ?? '—'} MW</dd></div>
-        <div className="flex justify-between"><dt>Confidence — low</dt><dd>{c.low.toLocaleString('en-IN')}</dd></div>
-        <div className="flex justify-between"><dt>Confidence — nominal</dt><dd>{c.nominal.toLocaleString('en-IN')}</dd></div>
-        <div className="flex justify-between"><dt>Confidence — high</dt><dd>{c.high.toLocaleString('en-IN')}</dd></div>
+    <div className="hud-panel p-5">
+      <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-slate-100">{name}</h3>
+      <dl className="mt-3 space-y-1.5 text-[15px] text-slate-400">
+        <div className="flex justify-between border-b border-cyan-400/5 pb-1"><dt>Observations</dt><dd className="font-mono text-sm text-cyan-50">{s.count.toLocaleString('en-IN')}</dd></div>
+        <div className="flex justify-between border-b border-cyan-400/5 pb-1"><dt>Median FRP</dt><dd className="font-mono text-sm text-cyan-50">{s.median_frp ?? '—'} MW</dd></div>
+        <div className="flex justify-between border-b border-cyan-400/5 pb-1"><dt>Confidence — low</dt><dd className="font-mono text-sm text-cyan-50">{c.low.toLocaleString('en-IN')}</dd></div>
+        <div className="flex justify-between border-b border-cyan-400/5 pb-1"><dt>Confidence — nominal</dt><dd className="font-mono text-sm text-cyan-50">{c.nominal.toLocaleString('en-IN')}</dd></div>
+        <div className="flex justify-between"><dt>Confidence — high</dt><dd className="font-mono text-sm text-cyan-50">{c.high.toLocaleString('en-IN')}</dd></div>
       </dl>
     </div>
   )
@@ -31,12 +31,13 @@ export default function Harmonization() {
     }).catch(() => setH({ sensors: {} }))
   }, [])
 
-  if (!h) return <p className="text-slate-400">Loading harmonization stats…</p>
+  if (!h) return <p className="font-mono text-sm text-slate-400">Loading harmonization stats…</p>
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 text-sm leading-relaxed text-slate-300">
-        <h2 className="mb-2 text-lg font-semibold text-slate-100">How BLACKCAT harmonizes MODIS + VIIRS</h2>
+      <div className="hud-panel p-5 text-[15px] leading-relaxed text-slate-300">
+        <div className="hud-label mb-1">Module 04 // Cross-Sensor Harmonization</div>
+        <h2 className="mb-2 font-display text-[22px] font-semibold uppercase tracking-wide text-slate-100">How BLACKCAT harmonizes MODIS + VIIRS</h2>
         <p>
           MODIS (Terra/Aqua, ~1 km pixels) reports confidence as a percentage; VIIRS (Suomi NPP, 375 m
           pixels) reports it as a category (low / nominal / high). BLACKCAT maps both onto one ordinal
@@ -53,28 +54,28 @@ export default function Harmonization() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-          <div className="text-xs uppercase tracking-wider text-slate-400">Candidate cross-sensor links</div>
-          <div className="mt-1 text-3xl font-semibold">{(h.candidate_links ?? 0).toLocaleString('en-IN')}</div>
+        <div className="hud-panel p-4">
+          <div className="hud-label">Candidate cross-sensor links</div>
+          <div className="mt-2 font-mono text-[32px] font-medium leading-none text-slate-50">{(h.candidate_links ?? 0).toLocaleString('en-IN')}</div>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-          <div className="text-xs uppercase tracking-wider text-slate-400">Mixed-sensor clusters</div>
-          <div className="mt-1 text-3xl font-semibold">{(h.mixed_sensor_clusters ?? 0).toLocaleString('en-IN')}</div>
-          <div className="mt-1 text-xs text-slate-500">Candidate clusters containing observations from both sensors — direct evidence the harmonized record works across instruments.</div>
+        <div className="hud-panel p-4">
+          <div className="hud-label">Mixed-sensor clusters</div>
+          <div className="mt-2 font-mono text-[32px] font-medium leading-none text-slate-50">{(h.mixed_sensor_clusters ?? 0).toLocaleString('en-IN')}</div>
+          <div className="mt-2 text-[13px] leading-snug text-slate-500">Candidate clusters containing observations from both sensors — direct evidence the harmonized record works across instruments.</div>
         </div>
       </div>
 
       {example && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-          <h3 className="mb-3 text-base font-semibold">One real observation: original FIRMS fields vs unified record</h3>
+        <div className="hud-panel p-5">
+          <h3 className="mb-3 font-display text-lg font-semibold uppercase tracking-wide text-slate-100">One real observation: original FIRMS fields vs unified record</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <div className="mb-1 text-xs uppercase tracking-wider text-slate-400">Original (as delivered by NASA FIRMS)</div>
-              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(example.original, null, 1)}</pre>
+              <div className="hud-label mb-1.5">Original (as delivered by NASA FIRMS)</div>
+              <pre className="overflow-x-auto rounded-md border border-cyan-400/15 bg-[#040a14] p-3 font-mono text-xs text-slate-300">{JSON.stringify(example.original, null, 1)}</pre>
             </div>
             <div>
-              <div className="mb-1 text-xs uppercase tracking-wider text-slate-400">Unified BLACKCAT record</div>
-              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(example.unified, null, 1)}</pre>
+              <div className="hud-label mb-1.5">Unified BLACKCAT record</div>
+              <pre className="overflow-x-auto rounded-md border border-orange-400/25 bg-[#040a14] p-3 font-mono text-xs text-slate-300">{JSON.stringify(example.unified, null, 1)}</pre>
             </div>
           </div>
           {example.candidate_links?.length > 0 && (
