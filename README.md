@@ -117,7 +117,7 @@ fixture, anomaly explanations, CSV + GeoJSON ingestion, API flows, a
 two-file upload regression test, and a sensor-detection regression test
 based on the real FIRMS Archive Download file shape.
 `requirements.txt` includes the test dependencies — pytest and httpx — so a
-fresh install can run this suite directly. Verified 2026-11-14: **15 passed**.)
+fresh install can run this suite directly. Verified 2026-11-14: **17 passed**.)
 
 ## Using your own FIRMS download (e.g. the FIRMS Archive Download .json)
 
