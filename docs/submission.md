@@ -101,8 +101,8 @@ Our team used AI (Super Intelligence) tools during this project, and we disclose
 ## (g) Links
 
 - **Final Project Link:** https://github.com/kpm1598/NASA_space_App
-- **Project Demo Link:** <PASTE SLIDE DECK LINK AFTER UPLOADING THE DECK TO GOOGLE DRIVE>
-  *(Upload `BLACKCAT_Demo_Deck.pptx` — 7 slides — to Google Drive, set sharing to "Anyone with the link", and paste the public link above.)*
+- **Project Demo Link:** https://docs.google.com/presentation/d/1C7sBOhTQmYf1cS_nGXWj2aMbLoAfEn9v/edit?usp=sharing&ouid=102769715929841328697&rtpof=true&sd=true
+  *(Verified 2026-11-15: opens publicly, view-only, no sign-in required. Deck: 7 slides.)*
 
 ---
 
